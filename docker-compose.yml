@@ -1,0 +1,19 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  minio-browser:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - ACCESS_KEY=${ACCESS_KEY}
+      - SECRET_KEY=${SECRET_KEY}
+      - ENDPOINT_URL=${ENDPOINT_URL}
+      - BUCKET_NAME=${BUCKET_NAME}
+    volumes:
+      - ./templates:/app/templates:ro
+    env_file:
+      - .env
+    restart: unless-stopped
+    container_name: bkash-minio-browser

@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html>
+    
+    <head>
+        <style>
+            :root {
+                --bg-primary: #1e1e1e;
+                --bg-secondary: #2d2d2d;
+                --bg-tertiary: #404040;
+                --text-primary: #e0e0e0;
+                --text-secondary: #b0b0b0;
+                --text-tertiary: #909090;
+                --accent-primary: #60a5fa;
+                --accent-hover: #93c5fd;
+                --border-color: #404040;
+                --modal-overlay: rgba(0,0,0,0.7);
+                --progress-bg: #404040;
+                --progress-fill: #4ade80;
+                --progress-text: #1e1e1e;
+                --cancel-btn: #ef4444;
+                --cancel-btn-hover: #dc2626;
+                --dropdown-hover: #3d3d3d;
+            }
+            
+            body.light-theme {
+                --bg-primary: #ffffff;
+                --bg-secondary: #f5f5f5;
+                --bg-tertiary: #e0e0e0;
+                --text-primary: #1e1e1e;
+                --text-secondary: #4a4a4a;
+                --text-tertiary: #6a6a6a;
+                --accent-primary: #0066cc;
+                --accent-hover: #0052a3;
+                --border-color: #d0d0d0;
+                --modal-overlay: rgba(0,0,0,0.4);
+                --progress-bg: #e0e0e0;
+                --progress-fill: #22c55e;
+                --progress-text: #ffffff;
+                --cancel-btn: #dc2626;
+                --cancel-btn-hover: #b91c1c;
+                --dropdown-hover: #e8e8e8;
+            }
+            
+            body { 
+                font-family: Arial, sans-serif; 
+                margin: 20px; 
+                background-color: var(--bg-primary);
+                color: var(--text-primary);
+                transition: background-color 0.3s, color 0.3s;
+            }
+            .header-container {
+                display: flex;
+                align-items: baseline;
+                gap: 15px;
+                margin-bottom: 20px;
+            }
+            .header-left {
+                display: flex;
+                align-items: baseline;
+                gap: 15px;
+                flex: 1;
+            }
+            h1 { 
+                color: var(--text-primary); 
+                margin: 0;
+                font-size: 2em;
+            }
+            h2 { 
+                color: var(--text-secondary); 
+                margin: 0;
+                font-size: 1.2em;
+                font-weight: normal;
+            }
+            .theme-toggle {
+                background: none;
+                border: 2px solid var(--border-color);
+                color: var(--text-primary);
+                cursor: pointer;
+                padding: 8px 16px;
+                border-radius: 20px;
+                font-size: 0.9em;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                transition: all 0.3s;
+            }
+            .theme-toggle:hover {
+                background-color: var(--bg-secondary);
+                transform: scale(1.05);
+            }
+            .theme-icon {
+                font-size: 1.2em;
+            }
+            .folder { margin-left: 20px; }
+            .folder-header { display: flex; align-items: center; gap: 8px; position: relative; }
+            .folder-name { 
+                font-weight: bold; 
+                color: var(--accent-primary); 
+                cursor: pointer;
+                margin: 5px 0;
+            }
+            .folder-name:before { content: "📁 "; }
+            .download-icon {
+                cursor: pointer;
+                font-size: 1.2em;
+                text-decoration: none;
+                transition: transform 0.2s;
+            }
+            .download-icon:hover {
+                transform: scale(1.2);
+            }
+            .three-dot-menu {
+                position: relative;
+                display: inline-block;
+            }
+            .three-dot-btn {
+                background: none;
+                border: none;
+                cursor: pointer;
+                font-size: 1.2em;
+                padding: 5px;
+                color: var(--text-tertiary);
+            }
+            .three-dot-btn:hover {
+                color: var(--text-primary);
+                background-color: var(--bg-secondary);
+                border-radius: 3px;
+            }
+            .dropdown-menu {
+                display: none;
+                position: absolute;
+                left: 100%;
+                top: 0;
+                background-color: var(--bg-secondary);
+                min-width: 160px;
+                box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.3);
+                z-index: 1000;
+                border-radius: 4px;
+                margin-left: 10px;
+                border: 1px solid var(--border-color);
+            }
+            .dropdown-menu.show {
+                display: block;
+            }
+            .dropdown-item {
+                color: var(--text-primary);
+                padding: 12px 16px;
+                text-decoration: none;
+                display: block;
+                cursor: pointer;
+            }
+            .dropdown-item:hover {
+                background-color: var(--dropdown-hover);
+            }
+            .dropdown-item:first-child:hover {
+                border-radius: 4px 4px 0 0;
+            }
+            .dropdown-item:last-child:hover {
+                border-radius: 0 0 4px 4px;
+            }
+            .file { margin-left: 20px; display: flex; align-items: center; }
+            .file:before { content: "📄 "; margin-right: 5px; }
+            .file-size { 
+                margin-left: 10px; 
+                color: var(--text-tertiary); 
+                font-size: 0.9em;
+                font-style: italic;
+            }
+            ul { list-style-type: none; padding-left: 0; }
+            li { margin: 5px 0; }
+            a { 
+                text-decoration: none; 
+                color: var(--accent-primary); 
+            }
+            a:hover { 
+                text-decoration: underline;
+                color: var(--accent-hover);
+            }
+            .collapsible { display: none; }
+            .active { display: block; }
+            
+            /* Modal styles */
+            .modal {
+                display: none;
+                position: fixed;
+                z-index: 2000;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                overflow: auto;
+                background-color: var(--modal-overlay);
+            }
+            .modal-content {
+                background-color: var(--bg-secondary);
+                margin: 15% auto;
+                padding: 20px;
+                border: 1px solid var(--border-color);
+                border-radius: 8px;
+                width: 80%;
+                max-width: 500px;
+                color: var(--text-primary);
+            }
+            .close {
+                color: var(--text-tertiary);
+                float: right;
+                font-size: 28px;
+                font-weight: bold;
+                cursor: pointer;
+            }
+            .close:hover,
+            .close:focus {
+                color: var(--text-primary);
+            }
+            .info-row {
+                padding: 8px 0;
+                border-bottom: 1px solid var(--border-color);
+            }
+            .info-label {
+                font-weight: bold;
+                color: var(--text-secondary);
+            }
+            .info-value {
+                color: var(--text-primary);
+                margin-left: 10px;
+            }
+            .loading {
+                text-align: center;
+                padding: 20px;
+                color: var(--text-tertiary);
+            }
+            
+            /* Progress Modal */
+            .progress-container {
+                margin: 20px 0;
+            }
+            .progress-bar {
+                width: 100%;
+                height: 30px;
+                background-color: var(--progress-bg);
+                border-radius: 15px;
+                overflow: hidden;
+                position: relative;
+            }
+            .progress-fill {
+                height: 100%;
+                background-color: var(--progress-fill);
+                transition: width 0.3s ease;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: var(--progress-text);
+                font-weight: bold;
+            }
+            .progress-text {
+                text-align: center;
+                margin-top: 10px;
+                color: var(--text-secondary);
+            }
+            .cancel-btn {
+                background-color: var(--cancel-btn);
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 16px;
+                margin-top: 15px;
+                width: 100%;
+            }
+            .cancel-btn:hover {
+                background-color: var(--cancel-btn-hover);
+            }
+            .cancel-btn:disabled {
+                background-color: var(--bg-tertiary);
+                cursor: not-allowed;
+                color: var(--text-tertiary);
+            }
+            h3 {
+                color: var(--text-primary);
+            }
+        </style>
+    </head>
+
+    <body>
+        <div class="header-container">
+            <div class="header-left">
+                <h1>{{ title }}</h1>
+                <h2>Bucket: {{ bucket }}</h2>
+            </div>
+            <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()">
+                <span id="themeIcon" class="theme-icon">🌙</span>
+                <span id="themeText">Dark</span>
+            </button>
+        </div>
+        {{ tree|safe }}
+        
+        <!-- Info Modal -->
+        <div id="infoModal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeModal()">&times;</span>
+                <h3 id="modalTitle">Folder Info</h3>
+                <div id="modalBody"></div>
+            </div>
+        </div>
+        
+        <!-- Progress Modal -->
+        <div id="progressModal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeProgressModal()">&times;</span>
+                <h3 id="progressModalTitle">Downloading Folder</h3>
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div id="progressFill" class="progress-fill">0%</div>
+                    </div>
+                    <div id="progressText" class="progress-text">Preparing download...</div>
+                </div>
+                <button id="cancelBtn" class="cancel-btn" onclick="cancelDownload()">Cancel Download</button>
+            </div>
+        </div>
+
+        <script>
+            let currentEventSource = null;
+            let currentTaskId = null;
+            
+            // Theme toggle functionality
+            function toggleTheme() {
+                const body = document.body;
+                const themeIcon = document.getElementById('themeIcon');
+                const themeText = document.getElementById('themeText');
+                
+                if (body.classList.contains('light-theme')) {
+                    body.classList.remove('light-theme');
+                    themeIcon.textContent = '🌙';
+                    themeText.textContent = 'Dark';
+                    localStorage.setItem('theme', 'dark');
+                } else {
+                    body.classList.add('light-theme');
+                    themeIcon.textContent = '☀️';
+                    themeText.textContent = 'Light';
+                    localStorage.setItem('theme', 'light');
+                }
+            }
+            
+            // Load saved theme on page load
+            window.addEventListener('DOMContentLoaded', (event) => {
+                const savedTheme = localStorage.getItem('theme');
+                const body = document.body;
+                const themeIcon = document.getElementById('themeIcon');
+                const themeText = document.getElementById('themeText');
+                
+                if (savedTheme === 'light') {
+                    body.classList.add('light-theme');
+                    themeIcon.textContent = '☀️';
+                    themeText.textContent = 'Light';
+                } else {
+                    themeIcon.textContent = '🌙';
+                    themeText.textContent = 'Dark';
+                }
+            });
+            
+            function toggleFolder(id) {
+                var element = document.getElementById(id);
+                if (element.style.display === "none" || element.style.display === "") {
+                    element.style.display = "block";
+                } else {
+                    element.style.display = "none";
+                }
+            }
+            
+            function toggleDropdown(id, event) {
+                event.stopPropagation();
+                var dropdowns = document.getElementsByClassName("dropdown-menu");
+                for (var i = 0; i < dropdowns.length; i++) {
+                    if (dropdowns[i].id !== id) {
+                        dropdowns[i].classList.remove('show');
+                    }
+                }
+                document.getElementById(id).classList.toggle("show");
+            }
+            
+            window.onclick = function(event) {
+                if (!event.target.matches('.three-dot-btn')) {
+                    var dropdowns = document.getElementsByClassName("dropdown-menu");
+                    for (var i = 0; i < dropdowns.length; i++) {
+                        dropdowns[i].classList.remove('show');
+                    }
+                }
+            }
+            
+            function showFolderInfo(folderPath, event) {
+                event.preventDefault();
+                event.stopPropagation();
+                
+                var dropdowns = document.getElementsByClassName("dropdown-menu");
+                for (var i = 0; i < dropdowns.length; i++) {
+                    dropdowns[i].classList.remove('show');
+                }
+                
+                var modal = document.getElementById('infoModal');
+                var modalBody = document.getElementById('modalBody');
+                var modalTitle = document.getElementById('modalTitle');
+                
+                modalTitle.textContent = 'Folder Info: ' + folderPath;
+                modalBody.innerHTML = '<div class="loading">Loading...</div>';
+                modal.style.display = 'block';
+                
+                fetch('/folder-info/' + folderPath)
+                    .then(response => response.json())
+                    .then(data => {
+                        modalBody.innerHTML = `
+                            <div class="info-row">
+                                <span class="info-label">Folder Path:</span>
+                                <span class="info-value">${data.path}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Total Files:</span>
+                                <span class="info-value">${data.file_count}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Total Size:</span>
+                                <span class="info-value">${data.total_size}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Subfolders:</span>
+                                <span class="info-value">${data.subfolder_count}</span>
+                            </div>
+                        `;
+                    })
+                    .catch(error => {
+                        modalBody.innerHTML = '<div class="info-row">Error loading folder info: ' + error + '</div>';
+                    });
+            }
+            
+            function closeModal() {
+                document.getElementById('infoModal').style.display = 'none';
+            }
+            
+            function closeProgressModal() {
+                if (currentEventSource) {
+                    currentEventSource.close();
+                    currentEventSource = null;
+                }
+                document.getElementById('progressModal').style.display = 'none';
+            }
+            
+            function cancelDownload() {
+                if (currentTaskId) {
+                    fetch('/cancel-download/' + currentTaskId, { method: 'POST' })
+                        .then(response => response.json())
+                        .then(data => {
+                            document.getElementById('progressText').textContent = 'Download cancelled';
+                            document.getElementById('cancelBtn').disabled = true;
+                            if (currentEventSource) {
+                                currentEventSource.close();
+                                currentEventSource = null;
+                            }
+                        });
+                }
+            }
+            
+            function downloadFolder(folderPath, event) {
+                event.preventDefault();
+                event.stopPropagation();
+                
+                var dropdowns = document.getElementsByClassName("dropdown-menu");
+                for (var i = 0; i < dropdowns.length; i++) {
+                    dropdowns[i].classList.remove('show');
+                }
+                
+                currentTaskId = 'task_' + Date.now();
+                
+                var modal = document.getElementById('progressModal');
+                var modalTitle = document.getElementById('progressModalTitle');
+                var progressFill = document.getElementById('progressFill');
+                var progressText = document.getElementById('progressText');
+                var cancelBtn = document.getElementById('cancelBtn');
+                
+                modalTitle.textContent = 'Downloading: ' + folderPath;
+                progressFill.style.width = '0%';
+                progressFill.textContent = '0%';
+                progressText.textContent = 'Preparing download...';
+                cancelBtn.disabled = false;
+                modal.style.display = 'block';
+                
+                currentEventSource = new EventSource('/download-folder-progress/' + folderPath + '?task_id=' + currentTaskId);
+                
+                currentEventSource.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.status === 'progress') {
+                        const percentage = Math.round((data.current / data.total) * 100);
+                        progressFill.style.width = percentage + '%';
+                        progressFill.textContent = percentage + '%';
+                        progressText.textContent = `Processing: ${data.current} / ${data.total} files`;
+                    } else if (data.status === 'complete') {
+                        progressFill.style.width = '100%';
+                        progressFill.textContent = '100%';
+                        progressText.textContent = 'Download complete! Starting download...';
+                        
+                        window.location.href = '/get-zip/' + currentTaskId;
+                        
+                        setTimeout(() => {
+                            closeProgressModal();
+                        }, 2000);
+                        
+                        currentEventSource.close();
+                        currentEventSource = null;
+                    } else if (data.status === 'error') {
+                        progressText.textContent = 'Error: ' + data.message;
+                        cancelBtn.disabled = true;
+                        currentEventSource.close();
+                        currentEventSource = null;
+                    } else if (data.status === 'cancelled') {
+                        progressText.textContent = 'Download cancelled';
+                        cancelBtn.disabled = true;
+                        currentEventSource.close();
+                        currentEventSource = null;
+                    }
+                };
+                
+                currentEventSource.onerror = function(error) {
+                    progressText.textContent = 'Connection error. Please try again.';
+                    cancelBtn.disabled = true;
+                    if (currentEventSource) {
+                        currentEventSource.close();
+                        currentEventSource = null;
+                    }
+                };
+            }
+        </script>
+    </body>
+</html>
