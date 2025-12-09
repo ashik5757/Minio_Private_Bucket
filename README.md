@@ -331,21 +331,5 @@ The application uses Python's logging module. Logs include:
 - **boto3 1.34.0** - AWS SDK for Python
 - **python-dotenv 1.0.0** - Environment variable management
 
-## License
-
-[Your License Here]
-
-## Contributing
-
-[Your Contributing Guidelines Here]
-
-## Support
-
-For issues and questions:
-- Check the logs: `docker-compose logs -f` or application console
-- Verify MinIO/S3 credentials and endpoint
-- Ensure bucket name is correct and accessible
-
----
 
 **Note**: This application is designed for private bucket access. Ensure your credentials have appropriate read permissions for the specified bucket.
