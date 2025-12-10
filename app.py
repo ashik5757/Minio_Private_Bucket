@@ -239,7 +239,7 @@ def folder_info(folder_path):
                     file_count += 1
         
         # Total files includes all files recursively
-        total_files = len(objects) - 1 if len(objects) > 0 else 0  # Exclude folder itself
+        total_files = len(objects) if len(objects) > 0 else 0  # Exclude folder itself
         
         info = {
             'path': folder_path.rstrip('/'),
@@ -337,7 +337,7 @@ def download_folder_progress(folder_path):
                             total_bytes += len(file_data)
                             
                             # Send progress update
-                            yield f"data: {json.dumps({'status': 'progress', 'current': file_count, 'total': len(objects) - 1})}\n\n"
+                            yield f"data: {json.dumps({'status': 'progress', 'current': file_count, 'total': len(objects)})}\n\n"
                     
                     except Exception as e:
                         logger.error(f"[{task_id}] Error processing file {key}: {str(e)}")
