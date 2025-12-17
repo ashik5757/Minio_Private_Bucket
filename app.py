@@ -151,9 +151,36 @@ def index():
     logger.info("Index route accessed")
     try:
         logger.info(f"Fetching objects from bucket: {bucket}")
-        objs = s3.list_objects_v2(Bucket=bucket)
-        contents = objs.get("Contents", [])
-        logger.info(f"Found {len(contents)} objects in bucket")
+        
+        # List all objects with pagination to handle large buckets
+        contents = []
+        continuation_token = None
+        page_count = 0
+        
+        while True:
+            page_count += 1
+            logger.info(f"Fetching page {page_count} for bucket listing")
+            
+            if continuation_token:
+                objs = s3.list_objects_v2(
+                    Bucket=bucket,
+                    ContinuationToken=continuation_token
+                )
+            else:
+                objs = s3.list_objects_v2(Bucket=bucket)
+            
+            page_contents = objs.get("Contents", [])
+            contents.extend(page_contents)
+            logger.info(f"Page {page_count}: Found {len(page_contents)} objects (Total so far: {len(contents)})")
+            
+            # Check if there are more pages
+            if objs.get('IsTruncated'):
+                continuation_token = objs.get('NextContinuationToken')
+                logger.info(f"More pages available, continuing...")
+            else:
+                break
+        
+        logger.info(f"Total objects found in bucket: {len(contents)}")
         
         tree = build_tree(contents)
         tree_html = render_tree(tree)
