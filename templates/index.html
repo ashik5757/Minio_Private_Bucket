@@ -91,6 +91,41 @@
             .theme-icon {
                 font-size: 1.2em;
             }
+            .loading-indicator {
+                padding: 20px;
+                text-align: center;
+                color: var(--text-secondary);
+                font-style: italic;
+            }
+            .loading-spinner {
+                display: inline-block;
+                width: 20px;
+                height: 20px;
+                border: 3px solid var(--bg-tertiary);
+                border-top: 3px solid var(--accent-primary);
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+                margin-right: 10px;
+                vertical-align: middle;
+            }
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+            .load-status {
+                position: sticky;
+                top: 0;
+                background-color: var(--bg-secondary);
+                padding: 10px 15px;
+                border-radius: 5px;
+                margin-bottom: 15px;
+                border: 1px solid var(--border-color);
+                z-index: 100;
+            }
+            .load-status.complete {
+                background-color: var(--progress-fill);
+                color: var(--progress-text);
+            }
             .folder { margin-left: 20px; }
             .folder-header { display: flex; align-items: center; gap: 8px; position: relative; }
             .folder-name { 
@@ -293,7 +328,13 @@
                 <span id="themeText">Dark</span>
             </button>
         </div>
-        {{ tree|safe }}
+        
+        <div id="loadStatus" class="load-status">
+            <span class="loading-spinner"></span>
+            <span id="loadStatusText">Loading bucket contents...</span>
+        </div>
+        
+        <div id="treeContainer"></div>
         
         <!-- Info Modal -->
         <div id="infoModal" class="modal">
@@ -311,7 +352,7 @@
                 <h3 id="progressModalTitle">Downloading Folder</h3>
                 <div class="progress-container">
                     <div class="progress-bar">
-                        <div id="progressFill" class="progress-fill">0%</div>
+                        <div id="progressFill" class="progress-fill" style="width: 0%">0%</div>
                     </div>
                     <div id="progressText" class="progress-text">Preparing download...</div>
                 </div>
@@ -322,6 +363,7 @@
         <script>
             let currentEventSource = null;
             let currentTaskId = null;
+            let treeEventSource = null;
             
             // Theme toggle functionality
             function toggleTheme() {
@@ -357,7 +399,52 @@
                     themeIcon.textContent = '🌙';
                     themeText.textContent = 'Dark';
                 }
+                
+                // Start loading tree progressively
+                loadTreeProgressively();
             });
+            
+            function loadTreeProgressively() {
+                const treeContainer = document.getElementById('treeContainer');
+                const loadStatus = document.getElementById('loadStatus');
+                const loadStatusText = document.getElementById('loadStatusText');
+                
+                treeEventSource = new EventSource('/load-tree');
+                
+                treeEventSource.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.status === 'progress' || data.status === 'complete') {
+                        // Update tree
+                        treeContainer.innerHTML = data.tree;
+                        
+                        // Update status
+                        if (data.status === 'progress') {
+                            loadStatusText.textContent = `Loading... (${data.count} objects loaded, page ${data.page})`;
+                        } else {
+                            loadStatusText.innerHTML = `✅ Loaded ${data.count} objects successfully`;
+                            loadStatus.classList.add('complete');
+                            treeEventSource.close();
+                            
+                            // Hide status after 3 seconds
+                            setTimeout(() => {
+                                loadStatus.style.display = 'none';
+                            }, 3000);
+                        }
+                    } else if (data.status === 'error') {
+                        loadStatusText.textContent = `Error: ${data.message}`;
+                        loadStatus.style.backgroundColor = 'var(--cancel-btn)';
+                        treeEventSource.close();
+                    }
+                };
+                
+                treeEventSource.onerror = function(error) {
+                    console.error('Error loading tree:', error);
+                    loadStatusText.textContent = 'Error loading bucket contents';
+                    loadStatus.style.backgroundColor = 'var(--cancel-btn)';
+                    treeEventSource.close();
+                };
+            }
             
             function toggleFolder(id) {
                 var element = document.getElementById(id);
@@ -408,27 +495,32 @@
                 fetch('/folder-info/' + folderPath)
                     .then(response => response.json())
                     .then(data => {
-                        modalBody.innerHTML = `
-                            <div class="info-row">
-                                <span class="info-label">Folder Path:</span>
-                                <span class="info-value">${data.path}</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">Total Files:</span>
-                                <span class="info-value">${data.file_count}</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">Total Size:</span>
-                                <span class="info-value">${data.total_size}</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">Subfolders:</span>
-                                <span class="info-value">${data.subfolder_count}</span>
-                            </div>
-                        `;
+                        if (data.error) {
+                            modalBody.innerHTML = '<div class="error">Error: ' + data.error + '</div>';
+                        } else {
+                            modalBody.innerHTML = `
+                                <div class="info-row">
+                                    <span class="info-label">Path:</span>
+                                    <span class="info-value">${data.path}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Total Files:</span>
+                                    <span class="info-value">${data.file_count}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Subfolders:</span>
+                                    <span class="info-value">${data.subfolder_count}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Total Size:</span>
+                                    <span class="info-value">${data.total_size}</span>
+                                </div>
+                            `;
+                        }
                     })
                     .catch(error => {
-                        modalBody.innerHTML = '<div class="info-row">Error loading folder info: ' + error + '</div>';
+                        modalBody.innerHTML = '<div class="error">Error loading folder info</div>';
+                        console.error('Error:', error);
                     });
             }
             
@@ -446,16 +538,13 @@
             
             function cancelDownload() {
                 if (currentTaskId) {
-                    fetch('/cancel-download/' + currentTaskId, { method: 'POST' })
-                        .then(response => response.json())
-                        .then(data => {
-                            document.getElementById('progressText').textContent = 'Download cancelled';
-                            document.getElementById('cancelBtn').disabled = true;
-                            if (currentEventSource) {
-                                currentEventSource.close();
-                                currentEventSource = null;
-                            }
-                        });
+                    fetch('/cancel-download/' + currentTaskId, {
+                        method: 'POST'
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Download cancelled:', data);
+                    });
                 }
             }
             
@@ -463,18 +552,21 @@
                 event.preventDefault();
                 event.stopPropagation();
                 
+                // Close dropdown
                 var dropdowns = document.getElementsByClassName("dropdown-menu");
                 for (var i = 0; i < dropdowns.length; i++) {
                     dropdowns[i].classList.remove('show');
                 }
                 
-                currentTaskId = 'task_' + Date.now();
+                // Generate unique task ID
+                currentTaskId = 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
                 
+                // Show progress modal
                 var modal = document.getElementById('progressModal');
-                var modalTitle = document.getElementById('progressModalTitle');
                 var progressFill = document.getElementById('progressFill');
                 var progressText = document.getElementById('progressText');
                 var cancelBtn = document.getElementById('cancelBtn');
+                var modalTitle = document.getElementById('progressModalTitle');
                 
                 modalTitle.textContent = 'Downloading: ' + folderPath;
                 progressFill.style.width = '0%';
@@ -483,32 +575,36 @@
                 cancelBtn.disabled = false;
                 modal.style.display = 'block';
                 
+                // Close existing event source if any
+                if (currentEventSource) {
+                    currentEventSource.close();
+                }
+                
+                // Start streaming progress
                 currentEventSource = new EventSource('/download-folder-progress/' + folderPath + '?task_id=' + currentTaskId);
                 
                 currentEventSource.onmessage = function(event) {
                     const data = JSON.parse(event.data);
                     
                     if (data.status === 'progress') {
-                        const percentage = Math.round((data.current / data.total) * 100);
-                        progressFill.style.width = percentage + '%';
-                        progressFill.textContent = percentage + '%';
-                        progressText.textContent = `Processing: ${data.current} / ${data.total} files`;
+                        const percent = Math.round((data.current / data.total) * 100);
+                        progressFill.style.width = percent + '%';
+                        progressFill.textContent = percent + '%';
+                        progressText.textContent = `Processing file ${data.current} of ${data.total}...`;
                     } else if (data.status === 'complete') {
                         progressFill.style.width = '100%';
                         progressFill.textContent = '100%';
-                        progressText.textContent = 'Download complete! Starting download...';
+                        progressText.textContent = `Complete! ${data.file_count} files packaged. Starting download...`;
+                        cancelBtn.disabled = true;
                         
+                        // Trigger download
                         window.location.href = '/get-zip/' + currentTaskId;
                         
+                        // Close modal after delay
                         setTimeout(() => {
                             closeProgressModal();
                         }, 2000);
                         
-                        currentEventSource.close();
-                        currentEventSource = null;
-                    } else if (data.status === 'error') {
-                        progressText.textContent = 'Error: ' + data.message;
-                        cancelBtn.disabled = true;
                         currentEventSource.close();
                         currentEventSource = null;
                     } else if (data.status === 'cancelled') {
@@ -516,16 +612,26 @@
                         cancelBtn.disabled = true;
                         currentEventSource.close();
                         currentEventSource = null;
+                        
+                        setTimeout(() => {
+                            closeProgressModal();
+                        }, 2000);
+                    } else if (data.status === 'error') {
+                        progressText.textContent = 'Error: ' + data.message;
+                        progressFill.style.backgroundColor = 'var(--cancel-btn)';
+                        cancelBtn.disabled = true;
+                        currentEventSource.close();
+                        currentEventSource = null;
                     }
                 };
                 
                 currentEventSource.onerror = function(error) {
-                    progressText.textContent = 'Connection error. Please try again.';
+                    console.error('EventSource error:', error);
+                    progressText.textContent = 'Connection error';
+                    progressFill.style.backgroundColor = 'var(--cancel-btn)';
                     cancelBtn.disabled = true;
-                    if (currentEventSource) {
-                        currentEventSource.close();
-                        currentEventSource = null;
-                    }
+                    currentEventSource.close();
+                    currentEventSource = null;
                 };
             }
         </script>

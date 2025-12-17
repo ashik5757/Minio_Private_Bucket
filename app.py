@@ -148,48 +148,56 @@ def render_tree(tree, prefix="", level=0, parent_path=""):
 
 @app.route("/")
 def index():
-    logger.info("Index route accessed")
-    try:
-        logger.info(f"Fetching objects from bucket: {bucket}")
-        
-        # List all objects with pagination to handle large buckets
-        contents = []
-        continuation_token = None
-        page_count = 0
-        
-        while True:
-            page_count += 1
-            logger.info(f"Fetching page {page_count} for bucket listing")
+    logger.info("Index route accessed - rendering initial page")
+    return render_template('index.html', bucket=bucket, title=title)
+
+@app.route("/load-tree")
+def load_tree():
+    """Stream tree data progressively as pages are fetched"""
+    def generate():
+        try:
+            logger.info(f"Starting progressive tree loading for bucket: {bucket}")
             
-            if continuation_token:
-                objs = s3.list_objects_v2(
-                    Bucket=bucket,
-                    ContinuationToken=continuation_token
-                )
-            else:
-                objs = s3.list_objects_v2(Bucket=bucket)
+            contents = []
+            continuation_token = None
+            page_count = 0
             
-            page_contents = objs.get("Contents", [])
-            contents.extend(page_contents)
-            logger.info(f"Page {page_count}: Found {len(page_contents)} objects (Total so far: {len(contents)})")
-            
-            # Check if there are more pages
-            if objs.get('IsTruncated'):
+            while True:
+                page_count += 1
+                logger.info(f"Fetching page {page_count} for bucket listing")
+                
+                if continuation_token:
+                    objs = s3.list_objects_v2(
+                        Bucket=bucket,
+                        ContinuationToken=continuation_token
+                    )
+                else:
+                    objs = s3.list_objects_v2(Bucket=bucket)
+                
+                page_contents = objs.get("Contents", [])
+                contents.extend(page_contents)
+                logger.info(f"Page {page_count}: Found {len(page_contents)} objects (Total so far: {len(contents)})")
+                
+                # Build tree with current data
+                tree = build_tree(contents)
+                tree_html = render_tree(tree)
+                
+                # Send update with current tree and status
+                is_complete = not objs.get('IsTruncated', False)
+                
+                yield f"data: {json.dumps({'status': 'progress' if not is_complete else 'complete', 'tree': tree_html, 'count': len(contents), 'page': page_count})}\n\n"
+                
+                if is_complete:
+                    logger.info(f"Completed loading {len(contents)} total objects")
+                    break
+                
                 continuation_token = objs.get('NextContinuationToken')
-                logger.info(f"More pages available, continuing...")
-            else:
-                break
-        
-        logger.info(f"Total objects found in bucket: {len(contents)}")
-        
-        tree = build_tree(contents)
-        tree_html = render_tree(tree)
-        
-        logger.info("Successfully rendered index page")
-        return render_template('index.html', tree=tree_html, bucket=bucket, title=title)
-    except Exception as e:
-        logger.error(f"Error in index route: {str(e)}", exc_info=True)
-        return f"Error: {str(e)}", 500
+                
+        except Exception as e:
+            logger.error(f"Error in progressive tree loading: {str(e)}", exc_info=True)
+            yield f"data: {json.dumps({'status': 'error', 'message': str(e)})}\n\n"
+    
+    return Response(stream_with_context(generate()), mimetype='text/event-stream')
 
 @app.route("/download/<path:keyname>")
 def download(keyname):
